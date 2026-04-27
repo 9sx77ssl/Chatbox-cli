@@ -135,15 +135,23 @@ func isUniq(user ChatUser) bool {
 	if strings.Contains(user.Rendered.Username, "uniqUsernameIcon--custom") {
 		return true
 	}
+	if strings.Contains(user.Rendered.Username, "text-shadow") {
+		return true
+	}
 	return false
 }
 
 // isUsableColor returns true when r,g,b represents a color that is
 // neither too-white (invisible on light bg) nor too-black.
 func isUsableColor(r, g, b int) bool {
-	tooLight := r > 220 && g > 220 && b > 220
-	tooDark := r < 15 && g < 15 && b < 15
-	return !tooLight && !tooDark
+	if r < 15 && g < 15 && b < 15 {
+		return false
+	}
+	lum := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
+	if lum > 210 {
+		return false
+	}
+	return true
 }
 
 func rgbToHex(r, g, b int) string {
@@ -173,8 +181,12 @@ func extractRenderedColor(html string) string {
 			return rgbToHex(r, g, b)
 		}
 	}
-	// 4. First usable rgba() anywhere — catches gradient backgrounds like
-	//    linear-gradient(…, rgba(251,166,225,1) …)
+	return ""
+}
+
+// extractGradientColor tries to find a usable color from gradient backgrounds
+// or any hex color in the HTML. Used for non-Uniq users with custom nicks.
+func extractGradientColor(html string) string {
 	for _, m := range anyRGBAColorRe.FindAllStringSubmatch(html, -1) {
 		r, _ := strconv.Atoi(m[1])
 		g, _ := strconv.Atoi(m[2])
@@ -183,10 +195,9 @@ func extractRenderedColor(html string) string {
 			return rgbToHex(r, g, b)
 		}
 	}
-	// 5. First usable #RRGGBB hex anywhere — catches hex-based gradients.
 	for _, m := range anyHexColorRe.FindAllStringSubmatch(html, -1) {
 		c := strings.ToLower(m[1])
-		if c == "ffffff" || c == "eeeeee" || c == "000000" {
+		if c == "ffffff" || c == "000000" {
 			continue
 		}
 		return "#" + m[1]
@@ -208,6 +219,9 @@ func renderUsername(user ChatUser, isMe bool) string {
 		return usernameStyle.Render(name)
 	}
 	if isUniq(user) {
+		if c := extractRenderedColor(user.Rendered.Username); c != "" {
+			return bold.Foreground(lipgloss.Color(c)).Render(name)
+		}
 		var rb strings.Builder
 		for i, r := range []rune(name) {
 			c := rainbowColors[i%len(rainbowColors)]
@@ -217,6 +231,9 @@ func renderUsername(user ChatUser, isMe bool) string {
 	}
 	if user.Rendered.Username != "" {
 		if c := extractRenderedColor(user.Rendered.Username); c != "" {
+			return bold.Foreground(lipgloss.Color(c)).Render(name)
+		}
+		if c := extractGradientColor(user.Rendered.Username); c != "" {
 			return bold.Foreground(lipgloss.Color(c)).Render(name)
 		}
 	}
@@ -377,23 +394,44 @@ func (m *model) recalcViewport() {
 	if m.mode != modeNormal {
 		extra = 1
 	}
-	vpH := m.height - 1 - 3 - 1 - extra - 2
-	if vpH < 3 {
-		vpH = 3
-	}
 	vpW := m.width - 2
 	if vpW < 20 {
 		vpW = 20
+	}
+	vpH := m.height - 1 - 3 - 1 - extra - 2
+	if vpH < 3 {
+		vpH = 3
 	}
 	m.viewport.Width = vpW
 	m.viewport.Height = vpH
 	m.input.Width = vpW - 4
 }
 
+// wrapText breaks s into lines of at most w visible runes.
+func wrapText(s string, w int) []string {
+	if w <= 0 {
+		return []string{s}
+	}
+	runes := []rune(s)
+	if len(runes) <= w {
+		return []string{s}
+	}
+	var lines []string
+	for len(runes) > w {
+		lines = append(lines, string(runes[:w]))
+		runes = runes[w:]
+	}
+	if len(runes) > 0 {
+		lines = append(lines, string(runes))
+	}
+	return lines
+}
+
 func (m model) msgLineCount(msg ChatMessage) int {
 	if msg.IsDeleted {
 		return 1
 	}
+	msgW := m.viewport.Width - 2 // usable width inside viewport
 	n := 0
 	if msg.Reply != nil {
 		n++
@@ -402,7 +440,19 @@ func (m model) msgLineCount(msg ChatMessage) int {
 		return n + 1
 	}
 	text := cleanMessage(msg.MessageRaw, msg.Message)
-	n += len(strings.Split(text, "\n"))
+	indent := 2 + 5 + 1 + len([]rune(msg.User.Username)) + 2
+	avail := msgW - indent
+	if avail < 10 {
+		avail = 10
+	}
+	for _, line := range strings.Split(text, "\n") {
+		w := len([]rune(line))
+		if w == 0 {
+			n++
+		} else {
+			n += (w + avail - 1) / avail
+		}
+	}
 	return n
 }
 
@@ -713,20 +763,35 @@ func (m model) renderMessages() string {
 		isMention := strings.Contains(msg.MessageRaw, m.myUsername) ||
 			strings.Contains(msg.Message, fmt.Sprintf("@%s", m.myUsername))
 
+		// prefix(2) + time "HH:MM"(5) + space(1) + username + "  "(2)
+		indent := 2 + 5 + 1 + len([]rune(msg.User.Username)) + 2
+		indentStr := strings.Repeat(" ", indent)
+		availW := m.viewport.Width - indent
+		if availW < 10 {
+			availW = 10
+		}
 		lines := strings.Split(text, "\n")
-		for i, line := range lines {
-			var content string
-			if isMention && msg.User.UserID != m.myUserID {
-				content = mentionStyle.Render(line)
-			} else {
-				content = msgStyle.Render(line)
+		firstLine := true
+		for _, line := range lines {
+			wrapped := wrapText(line, availW)
+			if len(wrapped) == 0 {
+				wrapped = []string{""}
 			}
-			if i == 0 {
-				sb.WriteString(fmt.Sprintf("%s%s %s  %s", prefix, timeStr, nameStr, content))
-			} else {
-				sb.WriteString(fmt.Sprintf("          %s", content))
+			for _, wl := range wrapped {
+				var content string
+				if isMention && msg.User.UserID != m.myUserID {
+					content = mentionStyle.Render(wl)
+				} else {
+					content = msgStyle.Render(wl)
+				}
+				if firstLine {
+					sb.WriteString(fmt.Sprintf("%s%s %s  %s", prefix, timeStr, nameStr, content))
+					firstLine = false
+				} else {
+					sb.WriteString(indentStr + content)
+				}
+				sb.WriteString("\n")
 			}
-			sb.WriteString("\n")
 		}
 	}
 
@@ -792,7 +857,11 @@ func (m model) View() string {
 		inputBox = inputBorder.Width(m.width - 4).Render(m.input.View() + sendingIndicator)
 	}
 
-	help := helpStyle.Render("  Enter: send | Ctrl+E: edit last | Tab: select·reply | Ctrl+R: quick reply | PgUp/Dn: scroll | Esc: exit")
+	helpText := "  Enter: send | Ctrl+E: edit last | Tab: select·reply | Ctrl+R: quick reply | PgUp/Dn: scroll | Esc: exit"
+	if rw := []rune(helpText); len(rw) > m.width {
+		helpText = string(rw[:m.width])
+	}
+	help := helpStyle.Render(helpText)
 
 	parts := []string{header, chatArea}
 	if errLine != "" {
@@ -803,5 +872,11 @@ func (m model) View() string {
 	}
 	parts = append(parts, inputBox, help)
 
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	out := lipgloss.JoinVertical(lipgloss.Left, parts...)
+	// Prevent duplication on small terminals by capping output height
+	outLines := strings.Split(out, "\n")
+	if len(outLines) > m.height {
+		outLines = outLines[:m.height]
+	}
+	return strings.Join(outLines, "\n")
 }
