@@ -823,7 +823,7 @@ func (m model) View() string {
 
 	hyellow := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffd700")).Background(lipgloss.Color("#16213e"))
 	hyellowDim := lipgloss.NewStyle().Foreground(lipgloss.Color("#ccaa00")).Background(lipgloss.Color("#16213e"))
-	headerBg := lipgloss.NewStyle().Width(m.width).Background(lipgloss.Color("#16213e"))
+	headerBg := lipgloss.NewStyle().Width(m.width).MaxWidth(m.width).Background(lipgloss.Color("#16213e")).Inline(true)
 
 	dotColor := lipgloss.Color("#ff4757")
 	if m.connected {
