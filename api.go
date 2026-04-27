@@ -29,12 +29,16 @@ type ChatMessage struct {
 }
 
 type ChatUser struct {
-	UserID   int    `json:"user_id"`
-	Username string `json:"username"`
-	IsAdmin  bool   `json:"is_admin"`
-	IsMod    bool   `json:"is_moderator"`
-	IsStaff  bool   `json:"is_staff"`
-	IsBanned bool   `json:"is_banned"`
+	UserID    int    `json:"user_id"`
+	Username  string `json:"username"`
+	UserTitle string `json:"user_title"`
+	IsAdmin   bool   `json:"is_admin"`
+	IsMod     bool   `json:"is_moderator"`
+	IsStaff   bool   `json:"is_staff"`
+	IsBanned  bool   `json:"is_banned"`
+	Rendered  struct {
+		Username string `json:"username"`
+	} `json:"rendered"`
 }
 
 type ChatRoom struct {

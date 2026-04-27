@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -95,7 +96,46 @@ var (
 	selectMarker = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#4d94ff")).
 			Bold(true)
+
+	myMsgMarkerStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#2d7a2d"))
 )
+
+var (
+	renderedColorRe = regexp.MustCompile(`color:\s*#([0-9a-fA-F]{3,8})`)
+	rainbowColors   = []lipgloss.Color{
+		"#ff4444", "#ff9900", "#ffee00", "#44dd44", "#44aaff", "#cc44ff",
+	}
+)
+
+func renderUsername(user ChatUser, isMe bool) string {
+	name := user.Username
+	bold := lipgloss.NewStyle().Bold(true)
+
+	if isMe {
+		return myUsernameStyle.Render(name)
+	}
+	if user.IsAdmin {
+		return bold.Foreground(lipgloss.Color("#f13838")).Render(name)
+	}
+	if user.IsMod {
+		return bold.Foreground(lipgloss.Color("#0e9100")).Render(name)
+	}
+	if user.UserTitle == "Уник" {
+		var sb strings.Builder
+		for i, r := range []rune(name) {
+			c := rainbowColors[i%len(rainbowColors)]
+			sb.WriteString(bold.Foreground(c).Render(string(r)))
+		}
+		return sb.String()
+	}
+	if user.Rendered.Username != "" {
+		if m := renderedColorRe.FindStringSubmatch(user.Rendered.Username); len(m) == 2 {
+			return bold.Foreground(lipgloss.Color("#" + m[1])).Render(name)
+		}
+	}
+	return usernameStyle.Render(name)
+}
 
 type tickMsg time.Time
 type messagesMsg []ChatMessage
@@ -544,9 +584,12 @@ func (m model) renderMessages() string {
 
 	for idx, msg := range m.messages {
 		selected := m.mode == modeSelect && idx == m.selectIdx
+		isOwn := msg.User.UserID == m.myUserID
 		prefix := "  "
 		if selected {
 			prefix = selectMarker.Render("> ")
+		} else if isOwn {
+			prefix = myMsgMarkerStyle.Render("▍") + " "
 		}
 
 		if msg.IsDeleted {
@@ -557,13 +600,7 @@ func (m model) renderMessages() string {
 
 		t := time.Unix(msg.Date, 0)
 		timeStr := timeStyle.Render(t.Format("15:04"))
-
-		var nameStr string
-		if msg.User.UserID == m.myUserID {
-			nameStr = myUsernameStyle.Render(msg.User.Username)
-		} else {
-			nameStr = usernameStyle.Render(msg.User.Username)
-		}
+		nameStr := renderUsername(msg.User, isOwn)
 
 		if msg.Reply != nil {
 			replyText := cleanMessage(msg.Reply.MessageRaw, msg.Reply.Message)
