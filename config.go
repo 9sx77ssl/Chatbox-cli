@@ -12,6 +12,7 @@ type Config struct {
 	PollMs     int    `yaml:"poll_ms"`
 	BaseURL    string `yaml:"base_url"`
 	MaxHistory int    `yaml:"max_history"`
+	SimpleMode bool   `yaml:"simple_mode"`
 }
 
 func defaultConfig() Config {
@@ -62,6 +63,6 @@ func saveConfig(cfg Config) error {
 	if err != nil {
 		return err
 	}
-	header := []byte("# Lolzchat TUI Configuration\n# Get your token from https://lolz.live/account/api\n\n")
+	header := []byte("# Lolzchat TUI Configuration\n# Get your token from https://lolz.live/account/api\n#\n# simple_mode: false  — цветные ники с детектом групп, уников, радугой и т.д.\n# simple_mode: true   — все ники красные, только вы зеленым (как в старой версии)\n\n")
 	return os.WriteFile(configPath(), append(header, data...), 0600)
 }

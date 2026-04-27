@@ -205,12 +205,15 @@ func extractGradientColor(html string) string {
 	return ""
 }
 
-func renderUsername(user ChatUser, isMe bool) string {
+func renderUsername(user ChatUser, isMe bool, simpleMode bool) string {
 	name := user.Username
 	bold := lipgloss.NewStyle().Bold(true)
 
 	if isMe {
 		return myUsernameStyle.Render(name)
+	}
+	if simpleMode {
+		return usernameStyle.Render(name)
 	}
 	if isForumStaff(user) {
 		if c := extractRenderedColor(user.Rendered.Username); c != "" {
@@ -751,7 +754,7 @@ func (m model) renderMessages() string {
 
 		t := time.Unix(msg.Date, 0)
 		timeStr := timeStyle.Render(t.Format("15:04"))
-		nameStr := renderUsername(msg.User, isOwn)
+		nameStr := renderUsername(msg.User, isOwn, m.cfg.SimpleMode)
 
 		if msg.Reply != nil {
 			replyText := cleanMessage(msg.Reply.MessageRaw, msg.Reply.Message)
