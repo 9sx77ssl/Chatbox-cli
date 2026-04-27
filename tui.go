@@ -407,7 +407,17 @@ func (m *model) recalcViewport() {
 	m.input.Width = vpW - 4
 }
 
-// wrapText breaks s into lines of at most w visible runes.
+// isPunct returns true for punctuation/symbols that should not start a new line.
+func isPunct(r rune) bool {
+	switch r {
+	case '.', ',', '!', '?', ':', ';', ')', ']', '}', '»', '…', '-', '—', '\'', '"', ' ':
+		return true
+	}
+	return false
+}
+
+// wrapText breaks s into lines of at most w visible runes,
+// pulling trailing punctuation from the next line onto the current one.
 func wrapText(s string, w int) []string {
 	if w <= 0 {
 		return []string{s}
@@ -418,8 +428,13 @@ func wrapText(s string, w int) []string {
 	}
 	var lines []string
 	for len(runes) > w {
-		lines = append(lines, string(runes[:w]))
-		runes = runes[w:]
+		cut := w
+		// pull punctuation that would start the next line onto this one
+		for cut < len(runes) && isPunct(runes[cut]) {
+			cut++
+		}
+		lines = append(lines, string(runes[:cut]))
+		runes = runes[cut:]
 	}
 	if len(runes) > 0 {
 		lines = append(lines, string(runes))
