@@ -14,25 +14,17 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            ext: ""
-          - os: ubuntu-latest
-            goos: linux
-            goarch: arm64
-            ext: ""
-          - os: macos-latest
-            goos: darwin
-            goarch: amd64
-            ext: ""
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
-            ext: ""
-          - os: ubuntu-latest
             goos: windows
             goarch: amd64
-            ext: ".exe"
+            name: chatbox-cli-windows.exe
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            name: chatbox-cli-macos
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            name: chatbox-cli-linux
 
     runs-on: ${{ matrix.os }}
 
@@ -51,13 +43,13 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
-          go build -ldflags="-s -w" -o chatbox-cli-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} .
+          go build -ldflags="-s -w" -o ${{ matrix.name }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: chatbox-cli-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: chatbox-cli-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}
 
   release:
     needs: build
@@ -73,4 +65,21 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          body: |
+            ## Chatbox-cli
+
+            TUI-клиент для чатбокса lolz.live
+
+            ### Скачать
+            | Система | Файл |
+            |---------|------|
+            | 🪟 Windows | `chatbox-cli-windows.exe` |
+            | 🍎 macOS (Apple Silicon) | `chatbox-cli-macos` |
+            | 🐧 Linux | `chatbox-cli-linux` |
+
+            ### Установка
+            1. Скачайте файл для вашей системы
+            2. Запустите — при первом запуске создастся `config.yml`
+            3. Вставьте токен из https://lolz.live/account/api в `config.yml`
+            4. Запустите снова — готово!
           files: artifacts/*
