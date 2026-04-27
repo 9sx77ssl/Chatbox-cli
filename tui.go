@@ -761,17 +761,43 @@ func (m model) renderMessages() string {
 			if replyText == "" {
 				replyText = "[изображение]"
 			}
-			rName := replyNameStyle.Render(msg.Reply.User.Username)
-			rText := replyStyle.Render(replyText)
-			sb.WriteString("  " + replyStyle.Render("╭ ") + rName + replyStyle.Render(": ") + rText + "\n")
+			replyPrefix := "  " + replyStyle.Render("╭ ") + replyNameStyle.Render(msg.Reply.User.Username) + replyStyle.Render(": ")
+			replyIndent := 2 + 2 + len([]rune(msg.Reply.User.Username)) + 2 // "  ╭ " + name + ": "
+			replyAvail := m.viewport.Width - replyIndent
+			if replyAvail < 10 {
+				replyAvail = 10
+			}
+			replyWrapped := wrapText(replyText, replyAvail)
+			replyIndentStr := strings.Repeat(" ", replyIndent)
+			for ri, rl := range replyWrapped {
+				if ri == 0 {
+					sb.WriteString(replyPrefix + replyStyle.Render(rl) + "\n")
+				} else {
+					sb.WriteString(replyIndentStr + replyStyle.Render(rl) + "\n")
+				}
+			}
 		}
+
+		// prefix(2) + time "HH:MM"(5) + space(1) + username + "  "(2)
+		indent := 2 + 5 + 1 + len([]rune(msg.User.Username)) + 2
 
 		if isImageMessage(msg.MessageRaw) {
 			url := extractImageURL(msg.MessageRaw)
 			if url != "" {
-				content := imgStyle.Render(url)
-				sb.WriteString(fmt.Sprintf("%s%s %s  %s", prefix, timeStr, nameStr, content))
-				sb.WriteString("\n")
+				urlAvail := m.viewport.Width - indent
+				if urlAvail < 10 {
+					urlAvail = 10
+				}
+				indentStr := strings.Repeat(" ", indent)
+				urlWrapped := wrapText(url, urlAvail)
+				for ui, ul := range urlWrapped {
+					if ui == 0 {
+						sb.WriteString(fmt.Sprintf("%s%s %s  %s", prefix, timeStr, nameStr, imgStyle.Render(ul)))
+					} else {
+						sb.WriteString(indentStr + imgStyle.Render(ul))
+					}
+					sb.WriteString("\n")
+				}
 				continue
 			}
 		}
@@ -781,8 +807,6 @@ func (m model) renderMessages() string {
 		isMention := strings.Contains(msg.MessageRaw, m.myUsername) ||
 			strings.Contains(msg.Message, fmt.Sprintf("@%s", m.myUsername))
 
-		// prefix(2) + time "HH:MM"(5) + space(1) + username + "  "(2)
-		indent := 2 + 5 + 1 + len([]rune(msg.User.Username)) + 2
 		indentStr := strings.Repeat(" ", indent)
 		availW := m.viewport.Width - indent
 		if availW < 10 {
