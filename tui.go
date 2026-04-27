@@ -244,6 +244,7 @@ func (m *model) msgPreview(idx int) string {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
+	passToInput := true
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -309,6 +310,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.GotoBottom()
 			}
 		case "up":
+			passToInput = false
 			if m.mode == modeSelect {
 				if m.selectIdx > 0 {
 					m.selectIdx--
@@ -319,6 +321,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.LineUp(1)
 			}
 		case "down":
+			passToInput = false
 			if m.mode == modeSelect {
 				if m.selectIdx < len(m.messages)-1 {
 					m.selectIdx++
@@ -329,6 +332,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.viewport.AtBottom() {
 					m.autoScroll = true
 				}
+			}
+		case "pgup":
+			passToInput = false
+			m.autoScroll = false
+			m.viewport.HalfViewUp()
+		case "pgdown":
+			passToInput = false
+			m.viewport.HalfViewDown()
+			if m.viewport.AtBottom() {
+				m.autoScroll = true
 			}
 		case "ctrl+e":
 			if m.mode == modeNormal {
@@ -349,14 +362,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.replyPreview = m.msgPreview(last)
 				m.input.Placeholder = "Ответ..."
 				m.input.SetValue("")
-			}
-		case "pgup":
-			m.autoScroll = false
-			m.viewport.HalfViewUp()
-		case "pgdown":
-			m.viewport.HalfViewDown()
-			if m.viewport.AtBottom() {
-				m.autoScroll = true
 			}
 		}
 
@@ -411,9 +416,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sending = false
 	}
 
-	var cmd tea.Cmd
-	m.input, cmd = m.input.Update(msg)
-	cmds = append(cmds, cmd)
+	if passToInput {
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }
@@ -558,12 +565,6 @@ func (m model) View() string {
 	if m.err != "" {
 		errLine = errorStyle.Render("  ! " + m.err)
 	}
-
-	inputW := m.width - 4
-	if inputW < 10 {
-		inputW = 10
-	}
-	m.input.Width = inputW
 
 	sendingIndicator := ""
 	if m.sending {
