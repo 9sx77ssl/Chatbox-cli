@@ -29,14 +29,15 @@ type ChatMessage struct {
 }
 
 type ChatUser struct {
-	UserID    int    `json:"user_id"`
-	Username  string `json:"username"`
-	UserTitle string `json:"user_title"`
-	IsAdmin   bool   `json:"is_admin"`
-	IsMod     bool   `json:"is_moderator"`
-	IsStaff   bool   `json:"is_staff"`
-	IsBanned  bool   `json:"is_banned"`
-	Rendered  struct {
+	UserID             int    `json:"user_id"`
+	Username           string `json:"username"`
+	UserTitle          string `json:"user_title"`
+	IsAdmin            bool   `json:"is_admin"`
+	IsMod              bool   `json:"is_moderator"`
+	IsStaff            bool   `json:"is_staff"`
+	IsBanned           bool   `json:"is_banned"`
+	DisplayIconGroupID int    `json:"display_icon_group_id"`
+	Rendered           struct {
 		Username string `json:"username"`
 	} `json:"rendered"`
 }
