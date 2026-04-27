@@ -1,4 +1,4 @@
-# lolzchat
+# Chatbox-cli
 
 Terminal chat client for [lolz.live](https://lolz.live) built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
@@ -20,10 +20,10 @@ Terminal chat client for [lolz.live](https://lolz.live) built with [Bubble Tea](
 ## Installation
 
 ```bash
-git clone https://github.com/9sx77ssl/lolzchat
-cd lolzchat
-go build -o lolzchat .
-./lolzchat
+git clone https://github.com/9sx77ssl/Chatbox-cli
+cd Chatbox-cli
+go build -o chatbox-cli .
+./chatbox-cli
 ```
 
 > Requires Go 1.21+

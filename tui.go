@@ -626,7 +626,7 @@ func (m model) View() string {
 	connDot := lipgloss.NewStyle().Foreground(dotColor).Background(lipgloss.Color("#16213e")).Render("●")
 
 	headerContent := lipgloss.JoinHorizontal(lipgloss.Left,
-		hyellow.Render(" Cli-Chatbox "),
+		hyellow.Render(" Chatbox-cli "),
 		hyellowDim.Render(" | "),
 		hyellow.Render("lolz.live/gay1234"),
 		hyellowDim.Render(" | "),

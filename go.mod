@@ -1,4 +1,4 @@
-module lolzchat
+module chatbox-cli
 
 go 1.26.2
 
